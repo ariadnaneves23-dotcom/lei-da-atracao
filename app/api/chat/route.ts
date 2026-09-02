@@ -1,11 +1,6 @@
 import { NextResponse } from "next/server";
 import OpenAI from "openai";
 
-const client = new OpenAI({
-  apiKey: process.env.XAI_API_KEY,
-  baseURL: "https://api.x.ai/v1",
-});
-
 const SYSTEM_PROMPT = `Você é um especialista profundo e rigoroso em física quântica aplicada à consciência, neurociência e nos ensinamentos originais de:
 
 - Joe Dispenza
@@ -60,6 +55,11 @@ const SYSTEM_PROMPT = `Você é um especialista profundo e rigoroso em física q
 export async function POST(req: Request) {
   try {
     const { messages } = await req.json();
+
+    const client = new OpenAI({
+      apiKey: process.env.XAI_API_KEY,
+      baseURL: "https://api.x.ai/v1",
+    });
 
     const response = await client.chat.completions.create({
       model: "grok-4",
