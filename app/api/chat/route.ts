@@ -60,6 +60,7 @@ export async function POST(req: Request) {
 
     if (!apiKey) {
       console.error("GEMINI_API_KEY não encontrada.");
+
       return NextResponse.json(
         { error: "A chave da API Gemini não está configurada." },
         { status: 500 }
@@ -79,23 +80,66 @@ export async function POST(req: Request) {
       ],
     }));
 
-    const response = await ai.models.generateContent({
-      model: "gemini-3.7-flash",
-      contents,
-      config: {
-        systemInstruction: SYSTEM_PROMPT,
-      },
-    });
+    const maxAttempts = 3;
+    let lastError: any = null;
 
-    const reply =
-      response.text || "Não consegui gerar uma resposta.";
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        const response = await ai.models.generateContent({
+          model: "gemini-3.7-flash",
+          contents,
+          config: {
+            systemInstruction: SYSTEM_PROMPT,
+          },
+        });
 
-    return NextResponse.json({ reply });
-  } catch (error: any) {
-    console.error("Erro na API Gemini:", error);
+        const reply =
+          response.text || "Não consegui gerar uma resposta.";
+
+        return NextResponse.json({ reply });
+      } catch (error: any) {
+        lastError = error;
+
+        const status = error?.status;
+
+        console.error(
+          `Erro na API Gemini - tentativa ${attempt}/${maxAttempts}:`,
+          error
+        );
+
+        // Retry apenas para erros temporários
+        if (status === 503 || status === 429) {
+          if (attempt < maxAttempts) {
+            // Espera 1s na primeira tentativa, 2s na segunda
+            const waitTime = attempt * 1000;
+
+            await new Promise((resolve) =>
+              setTimeout(resolve, waitTime)
+            );
+
+            continue;
+          }
+        }
+
+        // Outros erros não devem ser repetidos
+        break;
+      }
+    }
+
+    console.error("Gemini indisponível após as tentativas:", lastError);
 
     return NextResponse.json(
-      { error: "Erro ao processar a mensagem" },
+      {
+        error:
+          "O serviço de IA está temporariamente indisponível. Tente novamente em alguns instantes.",
+      },
+      { status: 503 }
+    );
+  } catch (error: any) {
+    console.error("Erro geral na API:", error);
+
+    return NextResponse.json(
+      { error: "Erro ao processar a mensagem." },
       { status: 500 }
     );
   }
