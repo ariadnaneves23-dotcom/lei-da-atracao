@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import OpenAI from "openai";
+import { GoogleGenAI } from "@google/genai";
 
 const SYSTEM_PROMPT = `Você é um especialista profundo e rigoroso em física quântica aplicada à consciência, neurociência e nos ensinamentos originais de:
 
@@ -56,26 +56,43 @@ export async function POST(req: Request) {
   try {
     const { messages } = await req.json();
 
-    const client = new OpenAI({
-      apiKey: process.env.GEMINI_API_KEY,
-      baseURL: "https://generativelanguage.googleapis.com/v1beta/openai/",
+    const apiKey = process.env.GEMINI_API_KEY;
+
+    if (!apiKey) {
+      console.error("GEMINI_API_KEY não encontrada.");
+      return NextResponse.json(
+        { error: "A chave da API Gemini não está configurada." },
+        { status: 500 }
+      );
+    }
+
+    const ai = new GoogleGenAI({
+      apiKey,
     });
 
-    const response = await client.chat.completions.create({
-      model: "gemini-3.7-flash",
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        ...messages,
+    const contents = messages.map((message: any) => ({
+      role: message.role === "assistant" ? "model" : "user",
+      parts: [
+        {
+          text: message.content,
+        },
       ],
+    }));
+
+    const response = await ai.models.generateContent({
+      model: "gemini-3.7-flash",
+      contents,
+      config: {
+        systemInstruction: SYSTEM_PROMPT,
+      },
     });
 
     const reply =
-      response.choices[0]?.message?.content ||
-      "Não consegui gerar uma resposta.";
+      response.text || "Não consegui gerar uma resposta.";
 
     return NextResponse.json({ reply });
   } catch (error: any) {
-    console.error("Erro na API:", error);
+    console.error("Erro na API Gemini:", error);
 
     return NextResponse.json(
       { error: "Erro ao processar a mensagem" },
