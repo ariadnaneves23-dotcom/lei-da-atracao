@@ -57,24 +57,26 @@ export async function POST(req: Request) {
     const { messages } = await req.json();
 
     const client = new OpenAI({
-      apiKey: process.env.XAI_API_KEY,
-      baseURL: "https://api.x.ai/v1",
+      apiKey: process.env.GEMINI_API_KEY,
+      baseURL: "https://generativelanguage.googleapis.com/v1beta/openai/",
     });
 
     const response = await client.chat.completions.create({
-      model: "grok-4",
+      model: "gemini-3.7-flash",
       messages: [
         { role: "system", content: SYSTEM_PROMPT },
         ...messages,
       ],
-      temperature: 0.7,
     });
 
-    const reply = response.choices[0]?.message?.content || "Não consegui gerar uma resposta.";
+    const reply =
+      response.choices[0]?.message?.content ||
+      "Não consegui gerar uma resposta.";
 
     return NextResponse.json({ reply });
   } catch (error: any) {
     console.error("Erro na API:", error);
+
     return NextResponse.json(
       { error: "Erro ao processar a mensagem" },
       { status: 500 }
